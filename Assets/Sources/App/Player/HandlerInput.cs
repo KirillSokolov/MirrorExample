@@ -12,12 +12,12 @@ public class HandlerInput : MonoBehaviour
     public void KeyboardInput()
     {
         var direction = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
-        movement.CmdMove(direction);
+        movement.HandleLocalMovement(direction);
         animatorController.UpdateLocalAnimator(direction);
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            movement.CmdJump();
+           // movement.CmdJump();
         }
 
         if (Input.GetKeyDown(KeyCode.F))

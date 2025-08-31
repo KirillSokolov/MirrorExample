@@ -1,56 +1,27 @@
 using Mirror;
+using System;
 using UnityEngine;
 
 public class PlayerMovement : NetworkBehaviour
 {
     [Header("Components")]
     [SerializeField] private CharacterController characterController;
-    [SerializeField] private SyncedAnimatorController syncedAnimatorController;
+
+    [Header("Sync Vars")]
+    [SyncVar(hook = nameof(OnPositionChanged))]
+    private Vector3 syncPosition;
+
+    [SyncVar(hook = nameof(OnRotationChanged))]
+    private Quaternion syncRotation;
+
     [Header("Parameters")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float jumpForce = 7f;
-    private Vector3 jumpVelocity;
 
-
-    [Command]
-    public void CmdSyncMovement(Vector3 position, Quaternion rotation)
-    {
-        // Сервер обновляет свою позицию
-        transform.position = position;
-        transform.rotation = rotation;
-        if (!isLocalPlayer) return;
-        // Синхронизируем с другими клиентами
-        RpcSyncMovement(position, rotation);
-    }
-
-    [ClientRpc]
-    public void RpcSyncMovement(Vector3 position, Quaternion rotation)
-    {
-        // Не обновляем локального игрока (он уже в правильной позиции)
-        if (isLocalPlayer) return;
-
-        transform.position = position;
-        transform.rotation = rotation;
-    }
-
-
-    public void CmdMove(Vector2 moveDirection)
-    {
-        if (!characterController.isGrounded) {
-            HandleMovement(moveDirection);
-        }
-    }
-    private void HandleMovement(Vector2 moveDirection)
-    {
-        Vector3 move = new Vector3(moveDirection.x, 0, moveDirection.y);
-        move = transform.TransformDirection(move);
-        characterController.Move(move * moveSpeed * Time.deltaTime);
-    }
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
 
-       // InitializeLocalPlayer();
+        // InitializeLocalPlayer();
         SetupLocalCamera();
     }
 
@@ -59,48 +30,84 @@ public class PlayerMovement : NetworkBehaviour
         if (!isLocalPlayer) return;
 
         Camera mainCamera = Camera.main;
-        if (mainCamera != null)
-        {
-            // Создаем контейнер для камеры
-            GameObject cameraContainer = new GameObject("CameraContainer");
-            cameraContainer.transform.SetParent(transform);
-            cameraContainer.transform.localPosition = new Vector3(0, 1.7f, 0);
+        if (mainCamera != null) { 
+            
+                GameObject cameraContainer = new GameObject("CameraContainer");
+                cameraContainer.transform.SetParent(transform);
+                cameraContainer.transform.localPosition = new Vector3(0, 1.7f, 0);
 
-            // Настраиваем камеру
-            mainCamera.transform.SetParent(cameraContainer.transform);
-            mainCamera.transform.localPosition = new Vector3(0, 0, -3f);
-            mainCamera.transform.localRotation = Quaternion.identity;
+                mainCamera.transform.SetParent(cameraContainer.transform);
+                mainCamera.transform.localPosition = new Vector3(0, 0, -3f);
+                mainCamera.transform.localRotation = Quaternion.identity;
+            }
+    }
+
+
+    public void HandleLocalMovement(Vector2 direction)
+    {
+        Vector3 move = new Vector3(direction.x, 0, direction.y);
+        move = transform.TransformDirection(move);
+        characterController.Move(move * moveSpeed * Time.deltaTime);
+        syncPosition = move;
+    }
+
+    public void SyncWithServer()
+    {
+        if (Vector3.Distance(transform.position, syncPosition) > 0.1f ||
+            Quaternion.Angle(transform.rotation, syncRotation) > 1f)
+        {
+            CmdSyncTransform(transform.position, transform.rotation);
         }
     }
 
-    public void HandleGravity()
+    [Command]
+    private void CmdSyncTransform(Vector3 position, Quaternion rotation)
     {
-        if (characterController.isGrounded && jumpVelocity.y < 0)
+        syncPosition = position;
+
+        if (rotation != Quaternion.identity && rotation.eulerAngles.sqrMagnitude > 0.01f)
         {
-            jumpVelocity.y = -2f;
-            if (syncedAnimatorController.GetJump())
+            syncRotation = rotation;
+        }
+    }
+
+    public void HandleRemoteMovement()
+    {
+        if (isLocalPlayer) return;
+        try
+        {
+            if (Vector3.Distance(transform.position, syncPosition) > 0.001f)
             {
-                CmdLand();
+                transform.position = Vector3.Lerp(transform.position, syncPosition, Time.deltaTime * 10f);
+            }
+
+            if (syncRotation != Quaternion.identity &&
+                Quaternion.Angle(transform.rotation, syncRotation) > 0.1f)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, syncRotation, Time.deltaTime * 10f);
             }
         }
-
-        jumpVelocity.y += Physics.gravity.y * Time.deltaTime;
-        characterController.Move(jumpVelocity * Time.deltaTime);
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"Remote movement error: {e.Message}");
+        }
     }
 
-    [Command]
-    private void CmdLand()
+
+    private void OnPositionChanged(Vector3 oldPos, Vector3 newPos)
     {
-        syncedAnimatorController.UpdateSyncJump(false);
+        syncPosition = newPos;
+        HandleRemoteMovement();
     }
 
-    [Command]
-    public void CmdJump()
+    private void OnRotationChanged(Quaternion oldRot, Quaternion newRot)
     {
-        // Вычисляем скорость прыжка на сервере
-        jumpVelocity.y = Mathf.Sqrt(jumpForce * -2f * Physics.gravity.y);
-        syncedAnimatorController.UpdateSyncJump(true);
+        syncRotation = newRot;
     }
-
-
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        syncPosition = transform.position;
+        syncRotation = transform.rotation;
+    }
 }

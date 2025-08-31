@@ -9,23 +9,19 @@ public class UpdateStateManager : NetworkBehaviour
     [SerializeField] private HandlerInput handlerInput;
     void Update()
     {
-        playerMovement.CmdSyncMovement(transform.position, transform.rotation);
-
-        if (!isLocalPlayer) return;
+        if (!isLocalPlayer)
+        {
+            playerMovement.HandleRemoteMovement();
+            return;
+        }
 
         HandleInput();
-        HandleGravity();
+        playerMovement.SyncWithServer();
     }
 
     private void HandleInput()
     {
         handlerInput.KeyboardInput();
     }
-
-    private void HandleGravity()
-    {
-        playerMovement.HandleGravity();
-    }
-
 
 }
