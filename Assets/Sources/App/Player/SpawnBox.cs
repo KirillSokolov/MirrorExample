@@ -9,7 +9,17 @@ public class SpawnBox : NetworkBehaviour
     [SerializeField] private float bulletSpeed = 20f;
     [SerializeField] private float bulletLifetime = 3f;
 
-  
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+
+        // Register the prefab on the server
+        if (bulletPrefab != null)
+        {
+            NetworkClient.RegisterPrefab(bulletPrefab);
+        }
+    }
+
     [Command]
     public void CmdSpawn()
     {
