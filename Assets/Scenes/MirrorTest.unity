@@ -3036,7 +3036,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2479638211312608844, guid: 3ac1339bda3e6774a83e525b996f382c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2013989945}
   m_SourcePrefab: {fileID: 100100000, guid: 3ac1339bda3e6774a83e525b996f382c, type: 3}
 --- !u!1 &782628375
 GameObject:
@@ -4845,7 +4848,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   toggleGroupType: 1
   selectSprite: {fileID: 21300000, guid: 1c71ed2c87bccb748824b4c0eee88439, type: 3}
-  unSelectSprite: {fileID: 0}
+  unSelectSprite: {fileID: 21300000, guid: f3dd7b0b2d5dc5740a2e866112d5d2a7, type: 3}
   selectColor: {r: 0, g: 0, b: 0, a: 1}
   unSelectColor: {r: 1, g: 1, b: 1, a: 1}
   toggles:
@@ -5927,7 +5930,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   toggleGroupType: 0
   selectSprite: {fileID: 21300000, guid: 1c71ed2c87bccb748824b4c0eee88439, type: 3}
-  unSelectSprite: {fileID: 0}
+  unSelectSprite: {fileID: 21300000, guid: f3dd7b0b2d5dc5740a2e866112d5d2a7, type: 3}
   selectColor: {r: 0, g: 0, b: 0, a: 1}
   unSelectColor: {r: 1, g: 1, b: 1, a: 1}
   toggles:
@@ -6915,6 +6918,20 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6694952542949055769, guid: 3ac1339bda3e6774a83e525b996f382c, type: 3}
   m_PrefabInstance: {fileID: 772629351}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2013989945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013989941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47df1cb421ad2d844b64989abf805fe6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  networkPrefabs:
+  - {fileID: 7560784171947579349, guid: 47bbaa3e7ca8b6641b55d160cf811717, type: 3}
 --- !u!1 &2089110258
 GameObject:
   m_ObjectHideFlags: 0

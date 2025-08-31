@@ -9,7 +9,7 @@ public class ClientSettingsData
     public ConnData connData { get; private set; }
 
     public PlayerSpawnMethod playerSpawnMethod { get; private set; } = PlayerSpawnMethod.RoundRobin;
-    public HeadlessStartOptions headlessStartMode { get; private set; } = HeadlessStartOptions.AutoStartServer;
+    public HeadlessStartOptions headlessStartMode { get; private set; } = HeadlessStartOptions.DoNothing;
 
     private ISaveLoadUserData saveLoadUserData = SaveLoadDataImpl.Instance;
     private ISaveLoadConnClientData saveLoadConnClient = SaveLoadDataImpl.Instance;

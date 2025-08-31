@@ -12,15 +12,34 @@ public class PlayerMovement : NetworkBehaviour
     private Vector3 jumpVelocity;
 
 
-
     [Command]
+    public void CmdSyncMovement(Vector3 position, Quaternion rotation)
+    {
+        // Сервер обновляет свою позицию
+        transform.position = position;
+        transform.rotation = rotation;
+        if (!isLocalPlayer) return;
+        // Синхронизируем с другими клиентами
+        RpcSyncMovement(position, rotation);
+    }
+
+    [ClientRpc]
+    public void RpcSyncMovement(Vector3 position, Quaternion rotation)
+    {
+        // Не обновляем локального игрока (он уже в правильной позиции)
+        if (isLocalPlayer) return;
+
+        transform.position = position;
+        transform.rotation = rotation;
+    }
+
+
     public void CmdMove(Vector2 moveDirection)
     {
         if (!characterController.isGrounded) {
             HandleMovement(moveDirection);
         }
     }
-    [Command]
     private void HandleMovement(Vector2 moveDirection)
     {
         Vector3 move = new Vector3(moveDirection.x, 0, moveDirection.y);

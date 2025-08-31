@@ -9,6 +9,8 @@ public class UpdateStateManager : NetworkBehaviour
     [SerializeField] private HandlerInput handlerInput;
     void Update()
     {
+        playerMovement.CmdSyncMovement(transform.position, transform.rotation);
+
         if (!isLocalPlayer) return;
 
         HandleInput();
