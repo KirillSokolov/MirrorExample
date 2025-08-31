@@ -1,175 +1,219 @@
 using Mirror;
 using UnityEngine;
 
-[RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : NetworkBehaviour
 {
     [Header("Movement Settings")]
     public float moveSpeed = 5f;
-    public float rotationSpeed = 10f;
-    public float jumpForce = 8f;
-    public float gravity = 20f;
+    public float rotationSpeed = 180f;
 
-    [Header("Network Settings")]
-    [SyncVar] private Vector3 syncedPosition;
-    [SyncVar] private Quaternion syncedRotation;
-    [SyncVar] private Vector3 syncedVelocity;
-    [SyncVar] private bool isGrounded;
+    [Header("Sync Variables")]
+    [SyncVar(hook = "OnPositionChanged")]
+    private Vector3 syncedPosition;
 
-    private CharacterController characterController;
-    private Vector3 moveDirection = Vector3.zero;
-    private float verticalVelocity = 0f;
+    [SyncVar(hook = "OnRotationChanged")]
+    private Quaternion syncedRotation;
 
-    // Интерполяция для плавного движения
-    [SerializeField] private float positionLerpSpeed = 15f;
-    [SerializeField] private float rotationLerpSpeed = 15f;
+    [SyncVar(hook = "OnVelocityChanged")]
+    private Vector3 syncedVelocity;
 
-    // Тайминги для синхронизации
-    private float lastSyncTime = 0f;
-    private const float syncInterval = 0.1f; // 10 раз в секунду
+    private Rigidbody rb;
+    private bool isInitialized = false;
+    private float positionThreshold = 0.1f;
+    private float rotationThreshold = 1f;
 
     private void Awake()
     {
-        characterController = GetComponent<CharacterController>();
+        rb = GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            rb = gameObject.AddComponent<Rigidbody>();
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        }
     }
 
+    public override void OnStartAuthority()
+    {
+        base.OnStartAuthority();
+        InitializePlayer();
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        if (!isLocalPlayer)
+        {
+            InitializePlayer();
+        }
+    }
+
+    private void InitializePlayer()
+    {
+        isInitialized = true;
+
+        // Применяем начальные синхронизированные значения
+        if (!isLocalPlayer)
+        {
+            transform.position = syncedPosition;
+            transform.rotation = syncedRotation;
+            if (rb != null)
+            {
+                rb.velocity = syncedVelocity;
+            }
+        }
+    }
+
+    private void Update()
+    {
+        if (!isInitialized) return;
+
+        if (isLocalPlayer)
+        {
+            HandleInput();
+            CheckForChanges();
+        }
+    }
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
         SetupLocalCamera();
     }
-        private void SetupLocalCamera()
+    private void SetupLocalCamera()
     {
         if (!isLocalPlayer) return;
         Camera mainCamera = Camera.main;
         if (mainCamera != null)
         {
             GameObject cameraContainer = new GameObject("CameraContainer");
-    cameraContainer.transform.SetParent(transform);
+            cameraContainer.transform.SetParent(transform);
             cameraContainer.transform.localPosition = new Vector3(0, 1.7f, 0);
 
-    mainCamera.transform.SetParent(cameraContainer.transform);
+            mainCamera.transform.SetParent(cameraContainer.transform);
             mainCamera.transform.localPosition = new Vector3(0, 0, -3f);
-    mainCamera.transform.localRotation = Quaternion.identity;
+            mainCamera.transform.localRotation = Quaternion.identity;
         }
     }
-    private void Update()
+    private void HandleInput()
     {
-        if (isLocalPlayer)
-        {
-            HandleLocalMovement();
-            CheckForSync();
-        }
-        else
-        {
-            InterpolateMovement();
-        }
-    }
-
-    private void HandleLocalMovement()
-    {
-        // Проверка земли
-        isGrounded = characterController.isGrounded;
-
-        // Сброс вертикальной скорости при касании земли
-        if (isGrounded && verticalVelocity < 0)
-        {
-            verticalVelocity = -2f;
-        }
-
-        // Получение ввода
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
 
-        // Расчет движения
-        Vector3 move = transform.right * horizontal + transform.forward * vertical;
-        moveDirection = move * moveSpeed;
+        Vector3 movement = new Vector3(horizontal, 0, vertical) * moveSpeed * Time.deltaTime;
+        Vector3 newPosition = transform.position + movement;
 
-        // Прыжок
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        // Поворот в направлении движения
+        if (movement.magnitude > 0.1f)
         {
-            verticalVelocity = jumpForce;
+            Quaternion targetRotation = Quaternion.LookRotation(movement.normalized);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
 
-        // Гравитация
-        verticalVelocity -= gravity * Time.deltaTime;
-        moveDirection.y = verticalVelocity;
-
-        // Применение движения
-        characterController.Move(moveDirection * Time.deltaTime);
-
-        // Обновление синхронизированных переменных
-        syncedPosition = transform.position;
-        syncedRotation = transform.rotation;
-        syncedVelocity = moveDirection;
+        // Применяем движение через Rigidbody для физики
+        if (rb != null)
+        {
+            rb.MovePosition(newPosition);
+        }
+        else
+        {
+            transform.position = newPosition;
+        }
     }
 
-    private void CheckForSync()
+    private void CheckForChanges()
     {
-        if (Time.time - lastSyncTime > syncInterval)
+        // Проверяем изменения позиции
+        if (Vector3.Distance(transform.position, syncedPosition) > positionThreshold)
         {
-            CmdUpdateMovement(transform.position, transform.rotation, moveDirection, isGrounded);
-            lastSyncTime = Time.time;
+            CmdUpdatePosition(transform.position);
+        }
+
+        // Проверяем изменения вращения
+        if (Quaternion.Angle(transform.rotation, syncedRotation) > rotationThreshold)
+        {
+            CmdUpdateRotation(transform.rotation);
+        }
+
+        // Проверяем изменения скорости (если используем Rigidbody)
+        if (rb != null && Vector3.Distance(rb.velocity, syncedVelocity) > 0.1f)
+        {
+            CmdUpdateVelocity(rb.velocity);
         }
     }
 
     [Command]
-    private void CmdUpdateMovement(Vector3 position, Quaternion rotation, Vector3 velocity, bool grounded)
+    private void CmdUpdatePosition(Vector3 newPosition)
     {
-        syncedPosition = position;
-        syncedRotation = rotation;
-        syncedVelocity = velocity;
-        isGrounded = grounded;
-
-        // Распространяем изменения на всех клиентов
-        RpcUpdateMovement(position, rotation, velocity, grounded);
+        syncedPosition = newPosition;
     }
 
-    [ClientRpc]
-    private void RpcUpdateMovement(Vector3 position, Quaternion rotation, Vector3 velocity, bool grounded)
+    [Command]
+    private void CmdUpdateRotation(Quaternion newRotation)
     {
-        if (isLocalPlayer) return; // Не применяем к локальному игроку
-
-        syncedPosition = position;
-        syncedRotation = rotation;
-        syncedVelocity = velocity;
-        isGrounded = grounded;
+        syncedRotation = newRotation;
     }
 
-    private void InterpolateMovement()
+    [Command]
+    private void CmdUpdateVelocity(Vector3 newVelocity)
     {
-        // Интерполяция позиции
-        transform.position = Vector3.Lerp(transform.position, syncedPosition, positionLerpSpeed * Time.deltaTime);
+        syncedVelocity = newVelocity;
+    }
 
-        // Интерполяция вращения
-        transform.rotation = Quaternion.Lerp(transform.rotation, syncedRotation, rotationLerpSpeed * Time.deltaTime);
-
-        // Для не-локальных игроков также применяем физику
-        if (!characterController.isGrounded)
+    // Хуки для синхронизации
+    private void OnPositionChanged(Vector3 oldPos, Vector3 newPos)
+    {
+        if (!isLocalPlayer && isInitialized)
         {
-            characterController.Move(new Vector3(0, -gravity * Time.deltaTime, 0));
+            // Плавное перемещение для других игроков
+            if (Vector3.Distance(transform.position, newPos) > 1f)
+            {
+                StartCoroutine(SmoothMove(newPos));
+            }
+            else
+            {
+                transform.position = newPos;
+            }
         }
     }
 
-    // Метод для принудительной синхронизации
-    [ClientCallback]
-    public void ForceSync()
+    private void OnRotationChanged(Quaternion oldRot, Quaternion newRot)
+    {
+        if (!isLocalPlayer && isInitialized)
+        {
+            transform.rotation = newRot;
+        }
+    }
+
+    private void OnVelocityChanged(Vector3 oldVel, Vector3 newVel)
+    {
+        if (!isLocalPlayer && isInitialized && rb != null)
+        {
+            rb.velocity = newVel;
+        }
+    }
+
+    private System.Collections.IEnumerator SmoothMove(Vector3 targetPosition)
+    {
+        float duration = 0.2f;
+        float elapsed = 0f;
+        Vector3 startPosition = transform.position;
+
+        while (elapsed < duration)
+        {
+            transform.position = Vector3.Lerp(startPosition, targetPosition, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        transform.position = targetPosition;
+    }
+
+    // Для дебаггинга
+    private void OnGUI()
     {
         if (isLocalPlayer)
         {
-            CmdUpdateMovement(transform.position, transform.rotation, moveDirection, isGrounded);
+            GUI.Label(new Rect(10, 10, 200, 20), $"Position: {transform.position}");
+            GUI.Label(new Rect(10, 30, 200, 20), $"Is Local Player: {isLocalPlayer}");
         }
     }
-
-    // Вызывается при телепортации для мгновенной синхронизации
-    [Client]
-    public void Teleport(Vector3 newPosition)
-    {
-        if (isLocalPlayer)
-        {
-            transform.position = newPosition;
-            CmdUpdateMovement(newPosition, transform.rotation, Vector3.zero, true);
-        }
-    }
-
 }
