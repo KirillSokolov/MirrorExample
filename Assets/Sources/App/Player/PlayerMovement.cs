@@ -1,113 +1,110 @@
 using Mirror;
-using System;
 using UnityEngine;
 
 public class PlayerMovement : NetworkBehaviour
 {
-    [Header("Components")]
-    [SerializeField] private CharacterController characterController;
+    [Header("Movement Settings")]
+    public float moveSpeed = 5f;
+    public float rotationSpeed = 180f;
 
-    [Header("Sync Vars")]
-    [SyncVar(hook = nameof(OnPositionChanged))]
-    private Vector3 syncPosition;
+    private CharacterController characterController;
+    private Camera playerCamera;
 
-    [SyncVar(hook = nameof(OnRotationChanged))]
-    private Quaternion syncRotation;
+    private void Start()
+    {
+        characterController = GetComponent<CharacterController>();
 
-    [Header("Parameters")]
-    [SerializeField] private float moveSpeed = 5f;
+        if (isLocalPlayer)
+        {
+            SetupCamera();
+        }
+
+        // Настраиваем NetworkTransform
+        ConfigureNetworkTransform();
+    }
+
+    private void ConfigureNetworkTransform()
+    {
+        // В Mirror 96.0.1 используется NetworkTransform, а не NetworkTransformReliable
+        var networkTransform = GetComponent<NetworkTransformReliable>();
+        if (networkTransform != null)
+        {
+            // Настройки синхронизации
+            networkTransform.syncPosition = true;
+            networkTransform.syncRotation = true;
+            networkTransform.syncScale = false;
+
+            // Настройки интерполяции
+            networkTransform.interpolatePosition = true;
+            networkTransform.interpolateRotation = true;
+
+            // Интервалы синхронизации
+            networkTransform.syncInterval = 0.1f;
+   
+
+            // Компрессия
+            networkTransform.compressRotation = true;
+            networkTransform.positionPrecision = 1000;
+
+            Debug.Log("NetworkTransform configured successfully");
+        }
+        else
+        {
+            Debug.LogError("NetworkTransform component not found!");
+        }
+    }
+
+    private void Update()
+    {
+        if (!isLocalPlayer) return;
+
+        HandleMovement();
+        HandleRotation();
+    }
+
+    private void HandleMovement()
+    {
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+
+        Vector3 movement = new Vector3(horizontal, 0, vertical);
+        Vector3 move = transform.TransformDirection(movement) * moveSpeed * Time.deltaTime;
+
+        characterController.Move(move);
+
+        // Простая гравитация
+        if (!characterController.isGrounded)
+        {
+            characterController.Move(Vector3.down * 9.81f * Time.deltaTime);
+        }
+    }
+
+    private void HandleRotation()
+    {
+        if (Input.GetKey(KeyCode.Q))
+            transform.Rotate(Vector3.up, -rotationSpeed * Time.deltaTime);
+        if (Input.GetKey(KeyCode.E))
+            transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime);
+    }
+
+    private void SetupCamera()
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            GameObject cameraContainer = new GameObject("CameraContainer");
+            cameraContainer.transform.SetParent(transform);
+            cameraContainer.transform.localPosition = new Vector3(0, 1.7f, 0);
+
+            mainCamera.transform.SetParent(cameraContainer.transform);
+            mainCamera.transform.localPosition = new Vector3(0, 0, -3f);
+            mainCamera.transform.localRotation = Quaternion.identity;
+        }
+    }
 
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
-
-        // InitializeLocalPlayer();
-        SetupLocalCamera();
-    }
-
-    private void SetupLocalCamera()
-    {
-        if (!isLocalPlayer) return;
-
-        Camera mainCamera = Camera.main;
-        if (mainCamera != null) { 
-            
-                GameObject cameraContainer = new GameObject("CameraContainer");
-                cameraContainer.transform.SetParent(transform);
-                cameraContainer.transform.localPosition = new Vector3(0, 1.7f, 0);
-
-                mainCamera.transform.SetParent(cameraContainer.transform);
-                mainCamera.transform.localPosition = new Vector3(0, 0, -3f);
-                mainCamera.transform.localRotation = Quaternion.identity;
-            }
-    }
-
-
-    public void HandleLocalMovement(Vector2 direction)
-    {
-        Vector3 move = new Vector3(direction.x, 0, direction.y);
-        move = transform.TransformDirection(move);
-        characterController.Move(move * moveSpeed * Time.deltaTime);
-        syncPosition = move;
-    }
-
-    public void SyncWithServer()
-    {
-        if (Vector3.Distance(transform.position, syncPosition) > 0.1f ||
-            Quaternion.Angle(transform.rotation, syncRotation) > 1f)
-        {
-            CmdSyncTransform(transform.position, transform.rotation);
-        }
-    }
-
-    [Command]
-    private void CmdSyncTransform(Vector3 position, Quaternion rotation)
-    {
-        syncPosition = position;
-
-        if (rotation != Quaternion.identity && rotation.eulerAngles.sqrMagnitude > 0.01f)
-        {
-            syncRotation = rotation;
-        }
-    }
-
-    public void HandleRemoteMovement()
-    {
-        if (isLocalPlayer) return;
-        try
-        {
-            if (Vector3.Distance(transform.position, syncPosition) > 0.001f)
-            {
-                transform.position = Vector3.Lerp(transform.position, syncPosition, Time.deltaTime * 10f);
-            }
-
-            if (syncRotation != Quaternion.identity &&
-                Quaternion.Angle(transform.rotation, syncRotation) > 0.1f)
-            {
-                transform.rotation = Quaternion.Slerp(transform.rotation, syncRotation, Time.deltaTime * 10f);
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogWarning($"Remote movement error: {e.Message}");
-        }
-    }
-
-
-    private void OnPositionChanged(Vector3 oldPos, Vector3 newPos)
-    {
-        syncPosition = newPos;
-        HandleRemoteMovement();
-    }
-
-    private void OnRotationChanged(Quaternion oldRot, Quaternion newRot)
-    {
-        syncRotation = newRot;
-    }
-    public override void OnStartServer()
-    {
-        base.OnStartServer();
-        syncPosition = transform.position;
-        syncRotation = transform.rotation;
+ 
     }
 }

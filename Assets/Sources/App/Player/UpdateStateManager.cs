@@ -11,12 +11,12 @@ public class UpdateStateManager : NetworkBehaviour
     {
         if (!isLocalPlayer)
         {
-            playerMovement.HandleRemoteMovement();
+          //  playerMovement.HandleRemoteMovement();
             return;
         }
 
         HandleInput();
-        playerMovement.SyncWithServer();
+        //playerMovement.SyncWithServer();
     }
 
     private void HandleInput()
