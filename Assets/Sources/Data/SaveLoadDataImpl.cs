@@ -30,7 +30,7 @@ public class SaveLoadDataImpl:
 
     public void SaveNickname(string nickname)
     {
-        PlayerPrefs.SetString(Constants.PLAYER_NAME_KEY, nickname);
+        PlayerPrefs.SetString(Constants.PLAYER_NAME_KEY, Validation.Nickname(nickname));
         PlayerPrefs.Save();
     }
     public void SaveConnServerData(ConnData connData)

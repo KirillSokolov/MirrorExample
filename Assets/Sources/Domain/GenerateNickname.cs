@@ -2,17 +2,25 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GenerateNickname : MonoBehaviour
+public class Validation
 {
-    // Start is called before the first frame update
-    void Start()
+    public static string Nickname(string nickname)
     {
-        
+        if (nickname.Equals(""))
+        {
+            return GenerateNickname();
+        }
+        else
+        {
+            return nickname;
+        }
     }
 
-    // Update is called once per frame
-    void Update()
+    private static string GenerateNickname()
     {
-        
+        string name = "Player";
+        int index = Random.Range(0, 100);
+        return $"{name}_{index}";
     }
+
 }

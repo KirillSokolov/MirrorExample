@@ -1,12 +1,12 @@
 using Mirror;
 using System.Collections;
+using UnityEngine;
 
 
 public class UpdateStateManager : NetworkBehaviour
 {
-    private PlayerMovement playerMovement;
-    private HandlerInput handlerInput;
-
+    [SerializeField] private PlayerMovement playerMovement;
+    [SerializeField] private HandlerInput handlerInput;
     void Update()
     {
         if (!isLocalPlayer) return;

@@ -7,24 +7,27 @@ public class HandlerInput : MonoBehaviour
     [SerializeField] private PlayerMovement movement;
     [SerializeField] private SendMessage sendMessage;
     [SerializeField] private SpawnBox spawnBox;
+    [SerializeField] private SyncedAnimatorController animatorController;
 
     public void KeyboardInput()
     {
-        movement.Move(new Vector2(Input.GetAxis("Horizontal"),  Input.GetAxis("Vertical")));
+        var direction = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
+        movement.CmdMove(direction);
+        animatorController.UpdateLocalAnimator(direction);
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            movement.Jump();
+            movement.CmdJump();
         }
 
         if (Input.GetKeyDown(KeyCode.F))
         {
-            spawnBox.Spawn();
+            spawnBox.CmdSpawn();
         }
 
         if (Input.GetKeyDown(KeyCode.T))
         {
-            sendMessage.Send();
+            sendMessage.CmdSend();
         }
     }
 

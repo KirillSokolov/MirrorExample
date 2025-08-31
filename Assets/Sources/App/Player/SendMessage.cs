@@ -3,17 +3,10 @@ using UnityEngine;
 
 public class SendMessage : NetworkBehaviour
 {
-    private ISaveLoadUserData saveLoadUserData;
-
-    private void Awake()
-    {
-        saveLoadUserData = SaveLoadDataImpl.Instance;
-    }
-
     [Command]
-    public void Send()
+    public void CmdSend()
     {
-        RpcReceiveChatMessage(saveLoadUserData.GetNickname());
+        RpcReceiveChatMessage(gameObject.name);
     }
 
     [ClientRpc]
@@ -21,4 +14,6 @@ public class SendMessage : NetworkBehaviour
     {
         Debug.Log($"Привет от {nickname}");
     }
+
+ 
 }

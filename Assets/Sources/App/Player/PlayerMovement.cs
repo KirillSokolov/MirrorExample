@@ -5,26 +5,27 @@ public class PlayerMovement : NetworkBehaviour
 {
     [Header("Components")]
     [SerializeField] private CharacterController characterController;
-    [SerializeField] private SyncedAnimatorController animatorController;
-   
+    [SerializeField] private SyncedAnimatorController syncedAnimatorController;
     [Header("Parameters")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float jumpForce = 7f;
     private Vector3 jumpVelocity;
 
-    public void Move(Vector2 moveDirection)
+
+
+    [Command]
+    public void CmdMove(Vector2 moveDirection)
     {
         if (!characterController.isGrounded) {
             HandleMovement(moveDirection);
         }
     }
-
+    [Command]
     private void HandleMovement(Vector2 moveDirection)
     {
         Vector3 move = new Vector3(moveDirection.x, 0, moveDirection.y);
         move = transform.TransformDirection(move);
         characterController.Move(move * moveSpeed * Time.deltaTime);
-        UpdateAnimator(moveDirection);
     }
     public override void OnStartLocalPlayer()
     {
@@ -52,56 +53,35 @@ public class PlayerMovement : NetworkBehaviour
             mainCamera.transform.localRotation = Quaternion.identity;
         }
     }
+
     public void HandleGravity()
     {
         if (characterController.isGrounded && jumpVelocity.y < 0)
         {
             jumpVelocity.y = -2f;
+            if (syncedAnimatorController.GetJump())
+            {
+                CmdLand();
+            }
         }
 
         jumpVelocity.y += Physics.gravity.y * Time.deltaTime;
         characterController.Move(jumpVelocity * Time.deltaTime);
     }
 
-    private void UpdateAnimator(Vector2 moveDirection)
+    [Command]
+    private void CmdLand()
     {
-        if (animatorController != null)
-        {
-            // Локальное обновление анимаций
-            animatorController.SetMovement(moveDirection.x, moveDirection.y);
-
-            // Можно также использовать прямые вызовы
-            animatorController.SetBool("IsGrounded", characterController.isGrounded);
-            animatorController.SetBool("IsMoving", moveDirection.magnitude > 0.1f);
-        }
-    }
-
-    public void Jump()
-    {
-        jumpVelocity.y = Mathf.Sqrt(jumpForce * -2f * Physics.gravity.y);
-
-        if (animatorController != null)
-        {
-            animatorController.TriggerJump();
-        }
+        syncedAnimatorController.UpdateSyncJump(false);
     }
 
     [Command]
-    private void CmdUpdateAnimatorParameters()
+    public void CmdJump()
     {
-        // Серверная синхронизация параметров
-        if (animatorController != null)
-        {
-            // Параметры синхронизируются через SyncVar в SyncedAnimatorController
-        }
+        // Вычисляем скорость прыжка на сервере
+        jumpVelocity.y = Mathf.Sqrt(jumpForce * -2f * Physics.gravity.y);
+        syncedAnimatorController.UpdateSyncJump(true);
     }
 
-    [ContextMenu("Test Animation Sync")]
-    public void TestAnimationSync()
-    {
-        if (animatorController != null)
-        {
-            animatorController.TriggerAttack();
-        }
-    }
+
 }

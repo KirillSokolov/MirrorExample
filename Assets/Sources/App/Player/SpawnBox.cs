@@ -9,7 +9,7 @@ public class SpawnBox : NetworkBehaviour
     [SerializeField] private float bulletLifetime = 3f;
 
     [Command]
-    public void Spawn()
+    public void CmdSpawn()
     {
         if (bulletPrefab == null)
         {
