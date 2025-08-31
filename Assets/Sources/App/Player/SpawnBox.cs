@@ -1,6 +1,6 @@
-﻿using Mirror;
+﻿using UnityEngine;
+using Mirror;
 using System.Collections;
-using UnityEngine;
 
 public class SpawnBox : NetworkBehaviour
 {
@@ -9,14 +9,22 @@ public class SpawnBox : NetworkBehaviour
     [SerializeField] private float bulletSpeed = 20f;
     [SerializeField] private float bulletLifetime = 3f;
 
-    public override void OnStartServer()
+    public override void OnStartClient()
     {
-        base.OnStartServer();
+        base.OnStartClient();
 
-        // Register the prefab on the server
+        // Всегда регистрируем префаб на клиенте при старте
         if (bulletPrefab != null)
         {
-            NetworkClient.RegisterPrefab(bulletPrefab);
+            try
+            {
+                NetworkClient.RegisterPrefab(bulletPrefab);
+                Debug.Log($"✅ Registered bullet prefab: {bulletPrefab.name}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"⚠️ Prefab registration warning: {e.Message}");
+            }
         }
     }
 
@@ -32,59 +40,47 @@ public class SpawnBox : NetworkBehaviour
         Vector3 spawnPosition = firePoint.position;
         Quaternion spawnRotation = firePoint.rotation;
 
+        // Создаем пулю
         GameObject bullet = Instantiate(bulletPrefab, spawnPosition, spawnRotation);
-        bullet.name = $"Bullet_{netId}_{Time.time}";
 
-        // Настраиваем пулю на сервере
-        SetupBulletOnServer(bullet);
+        // Настраиваем физику
+        Rigidbody rb = bullet.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.velocity = bullet.transform.forward * bulletSpeed;
+        }
 
         // Спавним на всех клиентах
         NetworkServer.Spawn(bullet);
 
-        StartCoroutine(DestroyBulletAfterLifetime(bullet, bulletLifetime));
+        // Уничтожаем через время
+        StartCoroutine(DestroyBulletAfterLifetime(bullet));
     }
 
-    [Server]
-    private void SetupBulletOnServer(GameObject bullet)
+    private IEnumerator DestroyBulletAfterLifetime(GameObject bullet)
     {
-        // Настройка velocity на сервере
-        Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-        if (bulletRb != null)
-        {
-            bulletRb.velocity = bullet.transform.forward * bulletSpeed;
-        }
-
-        // Получаем NetworkIdentity пули
-        NetworkIdentity bulletIdentity = bullet.GetComponent<NetworkIdentity>();
-        if (bulletIdentity != null)
-        {
-            // Передаем netId вместо GameObject
-            RpcSetupBullet(bulletIdentity.netId, bullet.transform.forward * bulletSpeed);
-        }
-    }
-
-    [ClientRpc]
-    public void RpcSetupBullet(uint bulletNetId, Vector3 velocity)
-    {
-        // Находим пулю по netId
-        if (NetworkClient.spawned.TryGetValue(bulletNetId, out NetworkIdentity bulletIdentity))
-        {
-            GameObject bullet = bulletIdentity.gameObject;
-            Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-            if (bulletRb != null)
-            {
-                bulletRb.velocity = velocity;
-            }
-        }
-    }
-
-    private IEnumerator DestroyBulletAfterLifetime(GameObject bullet, float lifetime)
-    {
-        yield return new WaitForSeconds(lifetime);
+        yield return new WaitForSeconds(bulletLifetime);
 
         if (bullet != null)
         {
             NetworkServer.Destroy(bullet);
         }
+    }
+
+    // Клиентский выстрел для немедленной обратной связи
+    [Client]
+    public void ClientShoot()
+    {
+        // Немедленный визуальный эффект на клиенте
+        if (bulletPrefab != null)
+        {
+            GameObject localBullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
+            Rigidbody rb = localBullet.GetComponent<Rigidbody>();
+            if (rb != null) rb.velocity = localBullet.transform.forward * bulletSpeed;
+            Destroy(localBullet, bulletLifetime);
+        }
+
+        // Вызываем команду на сервере
+        CmdSpawn();
     }
 }
