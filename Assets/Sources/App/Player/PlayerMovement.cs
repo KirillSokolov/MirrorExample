@@ -51,7 +51,6 @@ public class PlayerMovement : NetworkBehaviour
     {
         isInitialized = true;
 
-        // Применяем начальные синхронизированные значения
         if (!isLocalPlayer)
         {
             transform.position = syncedPosition;
@@ -63,16 +62,7 @@ public class PlayerMovement : NetworkBehaviour
         }
     }
 
-    private void Update()
-    {
-        if (!isInitialized) return;
-
-        if (isLocalPlayer)
-        {
-            HandleInput();
-            CheckForChanges();
-        }
-    }
+  
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
@@ -93,22 +83,12 @@ public class PlayerMovement : NetworkBehaviour
             mainCamera.transform.localRotation = Quaternion.identity;
         }
     }
-    private void HandleInput()
+    public void HandleLocalMovement(Vector2 direction)
     {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
-
-        Vector3 movement = new Vector3(horizontal, 0, vertical) * moveSpeed * Time.deltaTime;
+ 
+        Vector3 movement = new Vector3(direction.x, 0, direction.y) * moveSpeed * Time.deltaTime;
         Vector3 newPosition = transform.position + movement;
 
-        // Поворот в направлении движения
-        if (movement.magnitude > 0.1f)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(movement.normalized);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-        }
-
-        // Применяем движение через Rigidbody для физики
         if (rb != null)
         {
             rb.MovePosition(newPosition);
@@ -119,21 +99,18 @@ public class PlayerMovement : NetworkBehaviour
         }
     }
 
-    private void CheckForChanges()
+    public void CheckMoveChanges()
     {
-        // Проверяем изменения позиции
         if (Vector3.Distance(transform.position, syncedPosition) > positionThreshold)
         {
             CmdUpdatePosition(transform.position);
         }
 
-        // Проверяем изменения вращения
         if (Quaternion.Angle(transform.rotation, syncedRotation) > rotationThreshold)
         {
             CmdUpdateRotation(transform.rotation);
         }
 
-        // Проверяем изменения скорости (если используем Rigidbody)
         if (rb != null && Vector3.Distance(rb.velocity, syncedVelocity) > 0.1f)
         {
             CmdUpdateVelocity(rb.velocity);
@@ -158,12 +135,10 @@ public class PlayerMovement : NetworkBehaviour
         syncedVelocity = newVelocity;
     }
 
-    // Хуки для синхронизации
     private void OnPositionChanged(Vector3 oldPos, Vector3 newPos)
     {
         if (!isLocalPlayer && isInitialized)
         {
-            // Плавное перемещение для других игроков
             if (Vector3.Distance(transform.position, newPos) > 1f)
             {
                 StartCoroutine(SmoothMove(newPos));
@@ -206,8 +181,6 @@ public class PlayerMovement : NetworkBehaviour
 
         transform.position = targetPosition;
     }
-
-    // Для дебаггинга
     private void OnGUI()
     {
         if (isLocalPlayer)

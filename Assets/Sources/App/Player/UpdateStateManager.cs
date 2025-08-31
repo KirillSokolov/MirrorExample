@@ -9,14 +9,10 @@ public class UpdateStateManager : NetworkBehaviour
     [SerializeField] private HandlerInput handlerInput;
     void Update()
     {
-        if (!isLocalPlayer)
-        {
-          //  playerMovement.HandleRemoteMovement();
-            return;
-        }
-
+        if (!isLocalPlayer)   return;
+        
         HandleInput();
-        //playerMovement.SyncWithServer();
+        playerMovement.CheckMoveChanges();
     }
 
     private void HandleInput()

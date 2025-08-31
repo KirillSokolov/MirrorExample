@@ -12,7 +12,7 @@ public class HandlerInput : MonoBehaviour
     public void KeyboardInput()
     {
         var direction = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
-       // movement.HandleLocalMovement(direction);
+        movement.HandleLocalMovement(direction);
         animatorController.UpdateLocalAnimator(direction);
 
         if (Input.GetKeyDown(KeyCode.Space))
@@ -25,7 +25,7 @@ public class HandlerInput : MonoBehaviour
             spawnBox.CmdSpawn();
         }
 
-        if (Input.GetKeyDown(KeyCode.T))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             sendMessage.CmdSend();
         }
