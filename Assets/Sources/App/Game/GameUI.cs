@@ -3,8 +3,7 @@ using UnityEngine;
 
 public class GameUI : MonoBehaviour
 {
-    [SerializeField]
-    private TextMeshProUGUI nickname;
+
 
     [SerializeField]
     private ChatMessage chatMessage;
@@ -33,13 +32,5 @@ public class GameUI : MonoBehaviour
         {
             addPlayerToClient.SetActive(true);
         }
-
-        nickname.text = saveLoadUserData.GetNickname();
     }
-
-    public void OnClickSendButton()
-    {
-        chatMessage.SendGreeting(nickname.text);
-    }
-
 }

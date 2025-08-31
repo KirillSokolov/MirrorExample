@@ -8,50 +8,54 @@ public class PlayerMovement : NetworkBehaviour
     public float rotationSpeed = 180f;
 
     private CharacterController characterController;
-    private Camera playerCamera;
+    private NetworkTransformUnreliable networkTransform;
+    private NetworkIdentity networkIdentity;
 
     private void Start()
     {
         characterController = GetComponent<CharacterController>();
+        networkTransform = GetComponent<NetworkTransformUnreliable>();
+        networkIdentity = GetComponent<NetworkIdentity>();
+
+        if (networkTransform == null)
+        {
+            Debug.LogError("NetworkTransform component missing!");
+            return;
+        }
+
+        if (networkIdentity == null)
+        {
+            Debug.LogError("NetworkIdentity component missing!");
+            return;
+        }
+
+        // Настраиваем ненадежный транспорт
+        ConfigureUnreliableTransform();
 
         if (isLocalPlayer)
         {
             SetupCamera();
         }
-
-        // Настраиваем NetworkTransform
-        ConfigureNetworkTransform();
     }
 
-    private void ConfigureNetworkTransform()
+    private void ConfigureUnreliableTransform()
     {
-        // В Mirror 96.0.1 используется NetworkTransform, а не NetworkTransformReliable
-        var networkTransform = GetComponent<NetworkTransformReliable>();
-        if (networkTransform != null)
-        {
-            // Настройки синхронизации
-            networkTransform.syncPosition = true;
-            networkTransform.syncRotation = true;
-            networkTransform.syncScale = false;
+        // ОСНОВНЫЕ НАСТРОЙКИ СИНХРОНИЗАЦИИ
+        networkTransform.syncPosition = true;
+        networkTransform.syncRotation = true;
+        networkTransform.syncScale = false;
 
-            // Настройки интерполяции
-            networkTransform.interpolatePosition = true;
-            networkTransform.interpolateRotation = true;
+        // НАСТРОЙКИ ИНТЕРПОЛЯЦИИ
+        networkTransform.interpolatePosition = true;
+        networkTransform.interpolateRotation = true;
 
-            // Интервалы синхронизации
-            networkTransform.syncInterval = 0.1f;
-   
+        // ЧАСТОТА СИНХРОНИЗАЦИИ (чаще для ненадежного транспорта)
+        networkTransform.syncInterval = 0.05f;       // 20 раз в секунду
+        
+        // НАСТРОЙКИ ДЛЯ НЕНАДЕЖНОГО ТРАНСПОРТА
+        networkTransform.compressRotation = false;    // Не сжимать для скорости
 
-            // Компрессия
-            networkTransform.compressRotation = true;
-            networkTransform.positionPrecision = 1000;
-
-            Debug.Log("NetworkTransform configured successfully");
-        }
-        else
-        {
-            Debug.LogError("NetworkTransform component not found!");
-        }
+        Debug.Log("NetworkTransform configured for UNRELIABLE transport");
     }
 
     private void Update()
@@ -60,6 +64,12 @@ public class PlayerMovement : NetworkBehaviour
 
         HandleMovement();
         HandleRotation();
+
+        // Частая синхронизация для ненадежного транспорта
+        if (Time.frameCount % 15 == 0) // Каждые 15 кадров
+        {
+            networkTransform.SetDirty();
+        }
     }
 
     private void HandleMovement()
@@ -72,7 +82,7 @@ public class PlayerMovement : NetworkBehaviour
 
         characterController.Move(move);
 
-        // Простая гравитация
+        // Гравитация
         if (!characterController.isGrounded)
         {
             characterController.Move(Vector3.down * 9.81f * Time.deltaTime);
@@ -105,6 +115,5 @@ public class PlayerMovement : NetworkBehaviour
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
- 
     }
 }
